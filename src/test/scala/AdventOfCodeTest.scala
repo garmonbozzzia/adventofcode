@@ -16,6 +16,8 @@ object TestUtils {
 
 object AdventOfCodeTest extends TestSuite {
   import TestUtils._
+
+
   val tests = Tests {
     'Day1 - {
       import year2017.Day1._
@@ -265,6 +267,222 @@ object AdventOfCodeTest extends TestSuite {
         bf1.answer2 <== 1242
         bf2.answer2 <== 1139
       }
+    }
+    'Day15 - {
+      //ImportInput.save(15)
+      val (mult1, mult2)= (BigInt(16807), BigInt(48271))
+      val (key1,key2) = (BigInt(116), BigInt(299))
+      val div = 2147483647
+      val div16 = Iterator.iterate(1)(_*2).drop(16).next()
+      def gen(key: BigInt, mult: BigInt) = Stream.iterate(key)(x => (x * mult) % div)
+      //def gen(key: BigInt, mult: BigInt) = Stream.iterate(key)(x => (x * mult) % div)
+      //(gen(key1,mult1) zip gen(key2, mult2)).take(40000000).count{case(x,y) => (x % div16) == (y % div16) }.trace
+//      (gen(key1,mult1) zip gen(key2, mult2)).take(5000000).count{case(x,y) => (x % div16) == (y % div16) }.trace ==> 309
+      (gen(65,mult1) zip gen(8921, mult2)).take(5).count{case(x,y) => (x % div16) == (y % div16) } ==> 1
+      (gen(65,mult1).filter(_ % 4 == 0) zip gen(8921, mult2).filter(_ % 8 == 0))
+        .take(1056).count{case(x,y) => ((x % div16)== (y % div16))} ==> 1
+      (gen(65,mult1).filter(_ % 4 == 0) zip gen(8921, mult2).filter(_ % 8 == 0))
+        .take(1055).count{case(x,y) => ((x % div16)== (y % div16))} ==> 0
+      (gen(65,mult1).filter(_ % 4 == 0) zip gen(8921, mult2).filter(_ % 8 == 0))
+        .take(5000000).count{case(x,y) => ((x % div16)== (y % div16))}.trace ==> 309
+      (gen(key1,mult1).filter(_ % 4 == 0) zip gen(key2, mult2).filter(_ % 8 == 0)).take(5000000)
+        .filter{case(x,y) => (x % div16) == (y % div16) }.map(_ <| (_ => print("+"))).size
+    }
+    'Day16 - {
+      //ImportInput.save(16)
+      import fastparse.all._
+      val number = P( CharIn('0'to'9').rep(1).!.map(_.toInt) )
+      sealed trait DanceMove
+      final case class Spin(n: Int) extends DanceMove
+      final case class Exchange(n: Int, m: Int) extends DanceMove
+      final case class Partner(a: String, b: String) extends DanceMove
+      val s = P("s" ~ number).map(Spin(_))
+      val x = P("x" ~ number ~"/" ~ number).map(_.reduce( Exchange(_,_)))
+      val p = P("p" ~ AnyChar.! ~ "/" ~ AnyChar.!).map(_.reduce(Partner(_,_)))
+
+      def parse(input: String) = P((s|x|p).rep(sep = ",")~End).parse(input).get.value
+      def solve(moves: Seq[DanceMove], init: String) = moves
+//          .traceWith(_.length)
+//          .traceWith(_.mkString("\n"))
+          //.traceWith(_.take(100).mkString("\n"))
+//          .traceWith(_.collect {case s: Spin => s } mkString("\n"))
+//          .traceWith(_.collect {case s: Exchange => s } mkString("\n"))
+//          .traceWith(_.collect {case s: Partner => s } mkString("\n"))
+  //          .traceWith(_.collect {case s: Spin => s } size)
+  //          .traceWith(_.collect {case s: Exchange => s } size)
+  //          .traceWith(_.collect {case s: Partner => s } size)
+        .foldLeft(init){
+        case (res,Spin(s)) => res.splitAt(res.length - s).swap.reduce(_+_)
+        case (res,Exchange(n, m)) =>
+          val sw = res(n)
+          res.patch(n,List(res(m)),1).patch(m,List(res(n)),1)
+        case (res,Partner(a, b)) => res.replace(a,"*").replace(b,a).replace("*",b)
+      }
+
+      solve(parse("s1,x3/4,pe/b"), "abcde") ==> "baedc"
+      solve(parse(Input.day(16)), "abcdefghijklmnop") ==> "giadhmkpcnbfjelo"
+      ("abcdefghijklmnop" zip "giadhmkpcnbfjelo") mkString (", ")
+      val moves = parse(Input.day(16))
+      Stream.iterate("abcdefghijklmnop")(solve(moves,_)).take(50).mkString("\n").trace
+//      abcdefghijklmnop
+//      giadhmkpcnbfjelo
+//      nihjpcmfgaekblod
+//      ehlkjingcdampfob
+//      aemgilbncophfjkd
+//      kbnacipheglojmfd
+//      cjhpbikanomdeglf
+//      imfkcnjbgoeldahp
+//      geincmljkphdofab
+//      ipcomlhnjagdbkfe
+//      icldjfpengkaobmh
+//      jicgbkflanmhoedp
+//      kbcdpmgfienlhaoj
+//      gikdfhnjcabmeplo
+//      aifejchmgkpnblod
+//      pflneiagcdkhjmob
+//      kphgilbacojfmend
+//      nbakcijfpgloehmd
+//      cefjbinkaohdpglm
+//      ihmncaebgopldkfj
+//      gpiachlenjfdomkb
+//      ijcohlfaekgdbnmp
+//      icldemjpagnkobhf
+//      eicgbnmlkahfopdj
+//      nbcdjhgmipalfkoe
+//      gindmfaeckbhpjlo
+//      kimpecfhgnjablod
+//      jmlapikgcdnfehob
+//      njfgilbkcoemhpad
+//      abknciemjglopfhd
+//      cpmebiankofdjglh
+//      ifhackpbgojldnme
+//      gjikcflpaemdohnb
+//      iecoflmkpngdbahj
+//      icldphejkganobfm
+//      picgbahlnkfmojde
+//      abcdefghijklmnop
+//      giadhmkpcnbfjelo
+//      nihjpcmfgaekblod
+//      ehlkjingcdampfob
+//      aemgilbncophfjkd
+//      kbnacipheglojmfd
+//      cjhpbikanomdeglf
+//      imfkcnjbgoeldahp
+//      geincmljkphdofab
+//      ipcomlhnjagdbkfe
+//      icldjfpengkaobmh
+//      jicgbkflanmhoedp
+//      kbcdpmgfienlhaoj
+//      gikdfhnjcabmeplo
+
+      // (a,g),
+      // (g,k),
+      // (k,b),
+      // (b,i),
+      // (i,c),
+      // (c,a),
+
+      // (d,d),
+
+      // (e,h),
+      // (h,p),
+      // (p,o)
+      // (o,l),
+      // (l,f),
+      // (f,m),
+      // (m,j),
+      // (j,n),
+      // (n,e),
+
+      //      P((s|x|p).rep(sep = ",")~End).parse(Input.day(16)).get.value.foldLeft("abcdefghijklmnop"){
+//        case (res,s: Int) => res.splitAt(res.length - s).swap.reduce(_+_)
+//        case (res,(n: Int, m: Int)) =>
+//          val sw = res(n)
+//          res.patch(n,List(res(m)),1).patch(m,List(res(n)),1)
+//        case (res,(a: String, b: String)) =>
+//          res.replace(a,"*").replace(b,a).replace("*",b)
+//      }
+      //"abcde"
+    }
+    'Day17 - {
+      //ImportInput.save(17)
+      //Input.day(17)
+      val steps = 394
+      def answer1 = ((1 to 2017).foldLeft(List(0), 0) {
+        case ((buffer, index), v) =>
+          val newIndex = (index + steps) % buffer.length
+          buffer.patch(newIndex + 1, List(v), 0) -> (newIndex + 1)
+      }._1.dropWhile(_ != 2017) ++ List(0)).take(2).last
+
+      def answer2 = (1 to 50000000).foldLeft(0 -> 0) {
+        case ((index, afterZero), v) =>
+          val newIndex = (index + steps) % v
+          (newIndex + 1) -> (if (newIndex == 0) v else afterZero)
+      }._2
+      answer1
+      assert(answer2.trace == 10150888)
+    }
+    'Day18 - {
+      //ImportInput.save(18)
+      import fastparse.all._
+      trait Command
+      case class Set(variable: String, value: String) extends Command
+      case class Add(variable: String, value: String) extends Command
+      case class Mul(variable: String, value: String) extends Command
+      case class Mod(variable: String, value: String) extends Command
+      case class Rcv(variable: String) extends Command
+      case class Snd(variable: String) extends Command
+      case class Jgz(variable: String, value: String) extends Command
+      val testCommands = "set a 1\nadd a 2\nmul a a\nmod a 5\nsnd a\nset a 0\nrcv a\njgz a -1\nset a 1\njgz a -2"
+        .split("\n").map(_.split(" ")
+//        .traceWith(_.mkString(", "))
+        match {
+          case Array("set", x, v) => Set(x,v)
+          case Array("add", x, v) => Add(x,v)
+          case Array("mul", x, v) => Mul(x,v)
+          case Array("mod", x, v) => Mod(x,v)
+          case Array("rcv", x) =>    Rcv(x)
+          case Array("snd", x) =>    Snd(x)
+          case Array("jgz", x, v) => Jgz(x,v)
+        }).toList
+      val commands = Input.day(18)        .split("\n").map(_.split(" ")
+        //        .traceWith(_.mkString(", "))
+      match {
+        case Array("set", x, v) => Set(x,v)
+        case Array("add", x, v) => Add(x,v)
+        case Array("mul", x, v) => Mul(x,v)
+        case Array("mod", x, v) => Mod(x,v)
+        case Array("rcv", x) =>    Rcv(x)
+        case Array("snd", x) =>    Snd(x)
+        case Array("jgz", x, v) => Jgz(x,v)
+      }).toList
+
+      case class State(p: Long = 0L, args: Map[String, Long] = Map.empty, sounds: List[Long] = Nil) {
+        import scala.util.Try
+        def valOf(v: String) = Try(v.toLong).toOption.getOrElse(args.getOrElse(v,0L))
+        def update(cmd: Command) = cmd match {
+          case Set(x, v) => State(p + 1, args.updated(x, valOf(v)), sounds)
+          case Add(x, v) => State(p + 1, args.updated(x, valOf(x) + valOf(v)), sounds)
+          case Mul(x, v) => State(p + 1, args.updated(x, valOf(x) * valOf(v)), sounds)
+          case Mod(x, v) => State(p + 1, args.updated(x, valOf(x) % valOf(v)), sounds)
+          case Rcv(x) => State(if(valOf(x) != 0) -1 else p + 1, args, sounds)
+          case Snd(v) => State(p + 1, args, valOf(v) :: sounds)
+          case Jgz(x, v) => State( p + (if(valOf(x) > 0) valOf(v) else 1), args, sounds)
+        }
+      }
+      //type
+      //def run(commands: List[Command]): (Int, Map[String,Int]) => (Int, Map[String,Int]) = ???
+      def run(commands: List[Command]): State => State = {
+        case x => x.update(commands(x.p.toInt))
+      }
+      def answer1(commands: List[Command]) = Iterator.iterate(State())(run(commands))
+        .dropWhile(x => x.p > -1 && x.p < commands.length).next().sounds.head
+      //answer1(testCommands).trace
+      assert(answer1(testCommands) == 4)
+      assert(answer1(commands) == 8600)
+
+      //      Iterator.iterate(State())(run(commands))
+//        .dropWhile(x => x.p > -1 && x.p < commands.length).next().valOf("$").trace
     }
   }
 }
