@@ -425,49 +425,22 @@ object AdventOfCodeTest extends TestSuite {
     'Day18 - {
       //ImportInput.save(18)
       import fastparse.all._
-      trait Command
-      case class Set(variable: String, value: String) extends Command
-      case class Add(variable: String, value: String) extends Command
-      case class Mul(variable: String, value: String) extends Command
-      case class Mod(variable: String, value: String) extends Command
-      case class Rcv(variable: String) extends Command
-      case class Snd(variable: String) extends Command
-      case class Jgz(variable: String, value: String) extends Command
+      type Command = Array[String]
       val testCommands = "set a 1\nadd a 2\nmul a a\nmod a 5\nsnd a\nset a 0\nrcv a\njgz a -1\nset a 1\njgz a -2"
-        .split("\n").map(_.split(" ")
-//        .traceWith(_.mkString(", "))
-        match {
-          case Array("set", x, v) => Set(x,v)
-          case Array("add", x, v) => Add(x,v)
-          case Array("mul", x, v) => Mul(x,v)
-          case Array("mod", x, v) => Mod(x,v)
-          case Array("rcv", x) =>    Rcv(x)
-          case Array("snd", x) =>    Snd(x)
-          case Array("jgz", x, v) => Jgz(x,v)
-        }).toList
-      val commands = Input.day(18)        .split("\n").map(_.split(" ")
-        //        .traceWith(_.mkString(", "))
-      match {
-        case Array("set", x, v) => Set(x,v)
-        case Array("add", x, v) => Add(x,v)
-        case Array("mul", x, v) => Mul(x,v)
-        case Array("mod", x, v) => Mod(x,v)
-        case Array("rcv", x) =>    Rcv(x)
-        case Array("snd", x) =>    Snd(x)
-        case Array("jgz", x, v) => Jgz(x,v)
-      }).toList
+        .split("\n").map(_.split(" ")).toList
+      val commands = Input.day(18).split("\n").map(_.split(" ")).toList
 
       case class State(p: Long = 0L, args: Map[String, Long] = Map.empty, sounds: List[Long] = Nil) {
         import scala.util.Try
         def valOf(v: String) = Try(v.toLong).toOption.getOrElse(args.getOrElse(v,0L))
         def update(cmd: Command) = cmd match {
-          case Set(x, v) => State(p + 1, args.updated(x, valOf(v)), sounds)
-          case Add(x, v) => State(p + 1, args.updated(x, valOf(x) + valOf(v)), sounds)
-          case Mul(x, v) => State(p + 1, args.updated(x, valOf(x) * valOf(v)), sounds)
-          case Mod(x, v) => State(p + 1, args.updated(x, valOf(x) % valOf(v)), sounds)
-          case Rcv(x) => State(if(valOf(x) != 0) -1 else p + 1, args, sounds)
-          case Snd(v) => State(p + 1, args, valOf(v) :: sounds)
-          case Jgz(x, v) => State( p + (if(valOf(x) > 0) valOf(v) else 1), args, sounds)
+          case Array("set", x, v) => State(p + 1, args.updated(x, valOf(v)), sounds)
+          case Array("add", x, v) => State(p + 1, args.updated(x, valOf(x) + valOf(v)), sounds)
+          case Array("mul", x, v) => State(p + 1, args.updated(x, valOf(x) * valOf(v)), sounds)
+          case Array("mod", x, v) => State(p + 1, args.updated(x, valOf(x) % valOf(v)), sounds)
+          case Array("rcv", x)    => State(if(valOf(x) != 0) -1 else p + 1, args, sounds)
+          case Array("snd", x)    => State(p + 1, args, valOf(x) :: sounds)
+          case Array("jgz", x, v) => State( p + (if(valOf(x) > 0) valOf(v) else 1), args, sounds)
         }
       }
       //type
