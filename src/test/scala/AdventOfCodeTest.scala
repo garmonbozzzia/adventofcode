@@ -14,9 +14,11 @@ object TestUtils {
 
 }
 
+
 object AdventOfCodeTest extends TestSuite {
   import TestUtils._
-
+  import fastparse.all._
+  val number = P( CharIn('0'to'9').rep(1).!.map(_.toInt) )
 
   val tests = Tests {
     'Day1 - {
@@ -290,8 +292,6 @@ object AdventOfCodeTest extends TestSuite {
     }
     'Day16 - {
       //ImportInput.save(16)
-      import fastparse.all._
-      val number = P( CharIn('0'to'9').rep(1).!.map(_.toInt) )
       sealed trait DanceMove
       final case class Spin(n: Int) extends DanceMove
       final case class Exchange(n: Int, m: Int) extends DanceMove
@@ -443,11 +443,43 @@ object AdventOfCodeTest extends TestSuite {
           case Array("jgz", x, v) => State( p + (if(valOf(x) > 0) valOf(v) else 1), args, sounds)
         }
       }
-      //type
-      //def run(commands: List[Command]): (Int, Map[String,Int]) => (Int, Map[String,Int]) = ???
-      def run(commands: List[Command]): State => State = {
-        case x => x.update(commands(x.p.toInt))
+
+      case class Program(commands: List[Command]) {
+        trait Wait
+        case class State(p: Long, args: Map[String, Long], out: List[Long], in: List[Long]) {
+          import scala.util.Try
+          def valOf(v: String) = Try(v.toLong).toOption.getOrElse(args.getOrElse(v,0L))
+          def update: State = commands(p.toInt) match {
+            case Array("set", x, v) => State(p + 1, args.updated(x, valOf(v)), out, in)
+            case Array("add", x, v) => State(p + 1, args.updated(x, valOf(x) + valOf(v)), out, in)
+            case Array("mul", x, v) => State(p + 1, args.updated(x, valOf(x) * valOf(v)), out, in)
+            case Array("mod", x, v) => State(p + 1, args.updated(x, valOf(x) % valOf(v)), out, in)
+            case Array("rcv", x)    =>
+              if(in.nonEmpty) State(p + 1, args.updated(x, in.head), out, in.tail )
+              else new State(p, args, out, Nil ) with Wait
+            case Array("snd", x)    => State(p + 1, args, valOf(x) :: out, in)
+            case Array("jgz", x, v) => State( p + (if(valOf(x) > 0) valOf(v) else 1), args, out, in)
+          }
+          def run = Stream.iterate(this)(_.update)
+            //.map(_.trace)
+            .collect{ case s: State with Wait => s }.head
+        }
+
+        val start0: State = State(0, Map("p" -> 0), List.empty, List.empty).run
+        val start1: State = State(0, Map("p" -> 1), List.empty, List.empty).run
+        lazy val answer =
+          Stream.iterate(start0 -> start1){ case (x,y) =>
+            x.copy(in = y.out, out = Nil).run -> y.copy(in = x.out, out = Nil).run }
+           // .map(_.trace)
+          .takeWhile{ case (x,y) => x.out.nonEmpty || y.out.nonEmpty}
+          .foldLeft(0){case (res,(x,y)) => res.trace + y.out.length}
       }
+
+      //Program("snd 1\nsnd 2\nsnd p\nrcv a\nrcv b\nrcv c\nrcv d".split("\n").map(_.split(" ")).toList).answer.trace
+      Program(Input.day(18).split("\n").map(_.split(" ")).toList).answer.trace
+
+      //Stream.iterate(State2(0, Map.empty, Nil, Nil))(x => update(testCommands))
+      def run(commands: List[Command]): State => State = x => x.update(commands(x.p.toInt))
       def answer1(commands: List[Command]) = Iterator.iterate(State())(run(commands))
         .dropWhile(x => x.p > -1 && x.p < commands.length).next().sounds.head
       //answer1(testCommands).trace
@@ -456,6 +488,218 @@ object AdventOfCodeTest extends TestSuite {
 
       //      Iterator.iterate(State())(run(commands))
 //        .dropWhile(x => x.p > -1 && x.p < commands.length).next().valOf("$").trace
+    }
+    'Day19 - {
+      //ImportInput.save(19)
+      val maze = Input.day(19).split("\n").toVector
+//      val maze =
+//      ( "     |          \n" +
+//        "     |  +--+    \n" +
+//        "     A  |  C    \n" +
+//        " F---|----E|--+ \n" +
+//        "     |  |  |  D \n" +
+//        "     +B-+  +--+ \n" +
+//        "                ")
+//        .split("\n").toVector
+
+      sealed trait Dir {
+        def left: Dir
+        def right: Dir
+        def symbol: Char
+      }
+//      object East extends Dir { override def left: Dir = ???  override def right: Dir = ??? }
+      final case object East extends Dir { def left = North;  def right = South; def symbol = '-' }
+      final case object West extends Dir { def left = South;  def right = North; def symbol = '-'  }
+      final case object North extends Dir { def left = West;  def right = East; def symbol = '|'  }
+      final case object South extends Dir { def left = East;  def right = West; def symbol = '|' }
+
+      case class Point(x: Int, y: Int, dir: Dir) {
+        lazy val fwd: Point = dir match {
+          case East  => Point(x, y+1, dir)
+          case West  => Point(x, y-1, dir)
+          case North => Point(x-1, y, dir)
+          case South => Point(x+1, y, dir)
+        }
+        lazy val left = Point(x,y,dir.left).fwd
+        lazy val right = Point(x,y,dir.right).fwd
+        lazy val value = maze.lift(x).flatMap(_.lift(y)).getOrElse(' ')
+        def next =
+          if(value == '+')
+            if(left.value.trace((x+1,y+1)) == ' ' || left.value == dir.symbol) right
+            else left
+          else fwd
+      }
+      val startpoint = Point(0, maze(0).indexOf('|'), South)
+      Stream.iterate(startpoint)(_.next)
+        .map(_.value)
+        .filter(_.isLetter).takeWhile(_ != 'P').mkString("")
+      Stream.iterate(startpoint)(_.next)
+        .map(_.value).takeWhile(_ != 'P').length
+    }
+    'Day20 - {
+      //      ImportInput.save(20)
+      case class Vector3D(x: Int, y: Int, z: Int) {
+        def + (that: Vector3D) = Vector3D(x+that.x, y+that.y,z+that.z)
+      }
+      case class Particle(p: Vector3D, v: Vector3D, a: Vector3D){
+        def next = Particle(p + v + a, v + a, a)
+      }
+      val negnumber = P("-".? ~ CharIn('0' to '9').rep()).!.map(_.toInt)
+      val vector = P("<"~negnumber.rep(exactly = 3, sep = ",") ~">").map{case Seq(x,y,z) => Vector3D(x,y,z)}
+      val particle = P("p=" ~ vector ~ ", v=" ~ vector ~ ", a=" ~ vector).map{case (p,v,a) => Particle(p,v,a)}
+
+      particle.rep(sep="\n").parse("p=<1,2,3>, v=<4,5,6>, a=<7,8,9>").get.value.trace
+      particle.rep(sep="\n").parse("p=<-11104,1791,5208>, v=<-6,36,-84>, a=<19,-5,-4>").get.value.trace
+      val particles = particle.rep(sep="\n").map(x => x).parse(Input.day(20)).get.value
+      def answer1 = particles.groupBy{
+        case Particle(_, _, Vector3D(ax,ay,az)) => math.abs(ax) + math.abs(ay) + math.abs(az)}
+        .minBy(_._1)._2
+      def uniques(ps: Seq[Particle]) = ps.groupBy(_.p).filter(_._2.length == 1).flatMap(_._2).toList
+      Stream.iterate(uniques(particles))(ps => uniques(ps.map(_.next))).take(100).foreach(_.length.trace)
+    }
+    'Day21 - {
+      //ImportInput.save(21)
+      //Input.day(21)
+      val start = ".#./..#/###"
+      //def rotate3(s: String) =
+      //1 2  1 3  4 2  4 3  2 1  3 1  2 4  2 1
+      //3 4  2 4  3 1  2 1  4 3  4 2  1 3  4 3
+      trait Tile {
+        def rotate: Tile
+        def flip: Tile
+      }
+      case class Tile2[T](a1: (T,T), a2: (T,T)) extends Tile {
+        def rotate = Tile2((a1._2,a2._2), (a1._1,a2._1))
+        def flip = Tile2(a2,a1)
+      }
+      case class Tile3[T](a1: (T,T,T), a2: (T,T,T), a3: (T,T,T)) extends Tile {
+        def rotate = Tile3((a1._3,a2._3,a3._3), (a1._2,a2._2,a3._2),(a1._1,a2._1,a3._1))
+        def flip = Tile3(a3,a2,a1)
+      }
+
+      val symm: Tile => List[Tile] =
+        s => Stream.iterate(s)(_.rotate).take(4).flatMap(x => List(x,x.flip)).toList
+
+      val a = ".#.\n..#\n###".split("\n").toList
+      //if(a.length % 2 == 0) ??? else ???
+
+      //a.map(_.grouped(2)).grouped(2)
+      a.map(_.grouped(3).toList).grouped(3).toList
+
+      //[
+      //  [
+      //    [[1,2,3],[4,5,6],[7,8,9]],
+      //    [[1,2,3],[4,5,6],[7,8,9]],
+      //    [[1,2,3],[4,5,6],[7,8,9]]
+      //  ],
+      //  [
+      //    [[1,2,3],[4,5,6],[7,8,9]],
+      //    [[1,2,3],[4,5,6],[7,8,9]],
+      //    [[1,2,3],[4,5,6],[7,8,9]]
+      //  ],
+      //  [
+      //    [[1,2,3],[4,5,6],[7,8,9]],
+      //    [[1,2,3],[4,5,6],[7,8,9]],
+      //    [[1,2,3],[4,5,6],[7,8,9]]]
+      //  ]
+      //]
+      val (n,m) = (a.length / 3,  a(0).length / 3)
+      //(0 until n).map(i => (0 until m).map( j => a(i)(j)))
+      val aa = (1 to 9).map(i => (1 to 9).map(j => (i,j))).traceWith(_.map(_.mkString).mkString("\n"))
+      val splited = aa.map(_.grouped(3).toList).transpose.grouped(3).toList
+      splited.traceWith(_.map(_.map(_.map(_.mkString).mkString("\n"))))
+
+      // +++ === +++
+      // +++ === +++
+      // +++ === +++
+
+      // === +++ ===
+      // === +++ ===
+      // === +++ ===
+
+      // +++ === +++
+      // +++ === +++
+      // +++ === +++
+
+//      val symmetries = List[String=>String](
+//        identity(_),
+//        flipX, flipY, flipXY,
+//        flipX andThen flipY,
+//        flipX andThen flipXY,
+//        flipY andThen flipXY,
+//        flipX andThen flipXY andThen flipX)
+//      symmetries.map(f => f("12/34")).distinct.length
+    }
+    'Day22 - {
+      //ImportInput.save(22)
+      sealed trait Dir {
+        def left: Dir
+        def right: Dir
+      }
+      //      object East extends Dir { override def left: Dir = ???  override def right: Dir = ??? }
+      final case object East extends Dir { def left = North;  def right = South }
+      final case object West extends Dir { def left = South;  def right = North  }
+      final case object North extends Dir { def left = West;  def right = East  }
+      final case object South extends Dir { def left = East;  def right = West }
+
+      case class Point(x: Int, y: Int, dir: Dir) {
+        lazy val fwd: Point = dir match {
+          case East  => Point(x, y+1, dir)
+          case West  => Point(x, y-1, dir)
+          case North => Point(x-1, y, dir)
+          case South => Point(x+1, y, dir)
+        }
+        lazy val left = Point(x,y,dir.left).fwd
+        lazy val right = Point(x,y,dir.right).fwd
+        lazy val bwd = Point(x,y,dir.left.left).fwd
+      }
+
+      def answer(input: String, steps: Int) = {
+        var count = 0
+        var inp = input.split("\n").toList
+        val (cx, cy) = (inp.length/2, inp(0).length/2)
+        val field = inp.map(_.zipWithIndex).zipWithIndex.flatMap {
+          case (xs,i) => xs.collect{ case ('#', j) => i -> j}
+        }
+        Iterator.iterate(field -> Point(cx,cy, North)) {
+          case (f, v@Point(x,y,_)) =>
+//            v.trace
+//            f.trace
+            if(f.contains((x,y))) f.filterNot(_ == (x,y)) -> v.right
+            else { count += 1; ((x,y) :: f) -> v.left}
+        }.take(steps+1).foreach(_ => ()).trace(count)
+        count
+      }
+      def answer2(input: String, steps: Int) = {
+        var countW = 0
+        var countI = 0
+        var inp = input.split("\n").toList
+        val (cx, cy) = (inp.length/2, inp(0).length/2)
+        val field = inp.map(_.zipWithIndex).zipWithIndex.flatMap {
+          case (xs,i) => xs.collect{ case ('#', j) => i -> j}
+        }.map(_ -> '#').toMap
+        Iterator.iterate(field -> Point(cx,cy, North)){
+          case (f, v@Point(x,y,_)) =>
+            val xy = (x,y)
+            val state = f.getOrElse(xy, '.')
+            state match {
+              case '.' => (f.updated(xy,'W'), v.left) <| (_ => countW += 1)
+              case 'W' => (f.updated(xy,'#'), v.fwd) <| (_ => countI += 1)
+              case '#' => (f.updated(xy,'F'), v.right)
+              case 'F' => (f - xy, v.bwd)
+          }
+        }.take(steps+1).foreach(_ => ())//.trace(count)
+        countI -> countW
+      }
+      answer2("..#\n#..\n...", 100)
+//      answer2("..#\n#..\n...", 10000000)
+      answer2(Input.day(22), 10000000)
+//      answer("..#\n#..\n...", 1)
+//      answer("..#\n#..\n...", 2)
+//      answer("..#\n#..\n...", 3)
+//      answer("..#\n#..\n...", 70)
+//      answer("..#\n#..\n...", 10000)
+//      answer(Input.day(22), 10000)
     }
   }
 }
