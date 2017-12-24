@@ -701,5 +701,75 @@ object AdventOfCodeTest extends TestSuite {
 //      answer("..#\n#..\n...", 10000)
 //      answer(Input.day(22), 10000)
     }
+    'Day23 - {
+      //ImportInput.save(23)
+      type Command = Array[String]
+      val commands = Input.day(23).split("\n").map(_.split(" ")).toList
+
+      case class Program(commands: List[Command]) {
+        trait Wait
+        var mulCount = 0
+        case class State(p: Long, args: Map[String, Long]) {
+          import scala.util.Try
+          def valOf(v: String) = Try(v.toLong).toOption.getOrElse(args.getOrElse(v,0L))
+          def update: State = commands(p.toInt) match {
+            case Array("set", x, v) => State(p + 1, args.updated(x, valOf(v)))
+            case Array("sub", x, v) => State(p + 1, args.updated(x, valOf(x) - valOf(v)))
+            case Array("mul", x, v) =>
+              mulCount += 1
+              State(p + 1, args.updated(x, valOf(x) * valOf(v)))
+            case Array("jnz", x, v) =>
+              State( p + (if(valOf(x) != 0) valOf(v) else 1), args)
+          }
+        }
+        def run = Stream.iterate(State(0,Map.empty))(_.update)
+          .takeWhile(x => x.p >= 0 && x.p < commands.length).last
+
+        def run2 = Stream.iterate(State(0,Map("a" -> 1)))(_.update <| (x => if(x.p == 23) x.trace ))
+            //.take(1000000)
+          .takeWhile(x => x.p >= 0 && x.p < commands.length).last
+
+      }
+      //(Program(commands.traceWith(_.length)) <| (_.run)).mulCount
+      //Program(commands).run2.args
+
+      val primes = read(pwd/'input/'primes).split("\n")
+        .flatMap(_.split(' ').filter(_.nonEmpty).map(_.toInt)).toList
+      val somePrimes = primes.dropWhile(_ < 106700).takeWhile(_ < 106700 + 17000) // 123700
+
+      Iterator.iterate(106700)(_ + 17).take(1001).filter(!somePrimes.contains(_)).size
+    }
+    'Day24 - {
+//      ImportInput.save(24)
+      val data = Input.day(24).split("\n").map(_.split("/") match {case Array(x,y) => (x.toInt, y.toInt)})
+        .toSet[(Int,Int)].map{
+          case (x,y) if x < y => (x,y)
+          case (x,y)  => (y,x)
+        }
+      //data.sortBy(_._1).mkString("\n").trace
+      def f( w: Int, v: Int, bs: Set[(Int,Int)] ): Int = {
+        val sbs = startBlocks(v, bs).map( x => f(w+x._1 + x._2, x._2, remove(x,bs) ))
+        if(sbs.nonEmpty) sbs.max else w
+      }
+      def g( res: List[(Int,Int)], v: Int, bs: Set[(Int,Int)] ): List[(Int,Int)] =
+        startBlocks(v, bs).map( x => g( x :: res, x._2, remove(x,bs) ))
+        .fold(res){
+          case (r1, r2) if (r1 lengthCompare r2.length) > 0 => r1
+          case (r1, r2) if (r1 lengthCompare r2.length) < 0 => r2
+          case (r1, r2) => if( r1.map(_.reduce(_ + _)).sum > r2.map(_.reduce(_ + _)).sum) r1 else r2
+        }
+
+
+      def remove(el: (Int,Int), from: Set[(Int,Int)]) =
+        if(from.contains(el)) (from - el) else (from - el.swap)
+      def startBlocks(v: Int, bs: Set[(Int,Int)]) = bs.collect {
+        case (x,y) if x == v => (x,y)
+        case (x,y) if y == v => (y,x)
+      }
+
+      f(0, 0, data)
+      g(Nil,0,data).map(_.reduce(_ + _)).sum
+
+    }
   }
 }
