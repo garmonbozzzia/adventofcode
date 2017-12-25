@@ -14,7 +14,6 @@ object TestUtils {
 
 }
 
-
 object AdventOfCodeTest extends TestSuite {
   import TestUtils._
   import fastparse.all._
@@ -272,23 +271,22 @@ object AdventOfCodeTest extends TestSuite {
     }
     'Day15 - {
       //ImportInput.save(15)
-      val (mult1, mult2)= (BigInt(16807), BigInt(48271))
-      val (key1,key2) = (BigInt(116), BigInt(299))
-      val div = 2147483647
-      val div16 = Iterator.iterate(1)(_*2).drop(16).next()
-      def gen(key: BigInt, mult: BigInt) = Stream.iterate(key)(x => (x * mult) % div)
+      val (key1,key2) = (116L, 299L)
+      val div = 2147483647L
+      def eq: ((Long, Long)) => Boolean = {case (x,y) => (x & 0xFFFF) == (y & 0xFFFF) }
+      def gen(key: Long, mult: Long) = Stream.iterate(key)(x => (x * mult) % div).drop(1)
+      def genA(key: Long) = gen(key,16807)
+      def genB(key: Long) = gen(key,48271)
+      def genPairs(key1: Long, key2: Long) = genA(key1) zip genB(key2)
+      def genPairs2(key1: Long, key2: Long) = genA(key1).filter(_ % 4 == 0) zip genB(key2).filter(_ % 8 == 0)
       //def gen(key: BigInt, mult: BigInt) = Stream.iterate(key)(x => (x * mult) % div)
-      //(gen(key1,mult1) zip gen(key2, mult2)).take(40000000).count{case(x,y) => (x % div16) == (y % div16) }.trace
-//      (gen(key1,mult1) zip gen(key2, mult2)).take(5000000).count{case(x,y) => (x % div16) == (y % div16) }.trace ==> 309
-      (gen(65,mult1) zip gen(8921, mult2)).take(5).count{case(x,y) => (x % div16) == (y % div16) } ==> 1
-      (gen(65,mult1).filter(_ % 4 == 0) zip gen(8921, mult2).filter(_ % 8 == 0))
-        .take(1056).count{case(x,y) => ((x % div16)== (y % div16))} ==> 1
-      (gen(65,mult1).filter(_ % 4 == 0) zip gen(8921, mult2).filter(_ % 8 == 0))
-        .take(1055).count{case(x,y) => ((x % div16)== (y % div16))} ==> 0
-      (gen(65,mult1).filter(_ % 4 == 0) zip gen(8921, mult2).filter(_ % 8 == 0))
-        .take(5000000).count{case(x,y) => ((x % div16)== (y % div16))}.trace ==> 309
-      (gen(key1,mult1).filter(_ % 4 == 0) zip gen(key2, mult2).filter(_ % 8 == 0)).take(5000000)
-        .filter{case(x,y) => (x % div16) == (y % div16) }.map(_ <| (_ => print("+"))).size
+      genPairs(65, 8921).take(40000000).count(eq).trace
+      genPairs(key1, key2).take(40000000).count(eq).trace
+      genPairs(65, 8921)   .take(5).count(eq) ==> 1
+      genPairs2(65,8921)   .take(1056).count(eq) ==> 1
+      genPairs2(65,8921)   .take(1055).count(eq) ==> 0
+      genPairs2(65,8921)   .take(5000000).count(eq).trace ==> 309
+      genPairs2(key1, key2).take(5000000).count(eq).trace
     }
     'Day16 - {
       //ImportInput.save(16)
@@ -457,11 +455,10 @@ object AdventOfCodeTest extends TestSuite {
             case Array("rcv", x)    =>
               if(in.nonEmpty) State(p + 1, args.updated(x, in.head), out, in.tail )
               else new State(p, args, out, Nil ) with Wait
-            case Array("snd", x)    => State(p + 1, args, valOf(x) :: out, in)
+            case Array("snd", x)    => State(p + 1, args, out :+ valOf(x), in)
             case Array("jgz", x, v) => State( p + (if(valOf(x) > 0) valOf(v) else 1), args, out, in)
           }
           def run = Stream.iterate(this)(_.update)
-            //.map(_.trace)
             .collect{ case s: State with Wait => s }.head
         }
 
@@ -469,10 +466,9 @@ object AdventOfCodeTest extends TestSuite {
         val start1: State = State(0, Map("p" -> 1), List.empty, List.empty).run
         lazy val answer =
           Stream.iterate(start0 -> start1){ case (x,y) =>
-            x.copy(in = y.out, out = Nil).run -> y.copy(in = x.out, out = Nil).run }
-           // .map(_.trace)
-          .takeWhile{ case (x,y) => x.out.nonEmpty || y.out.nonEmpty}
-          .foldLeft(0){case (res,(x,y)) => res.trace + y.out.length}
+            x.copy(in = y.out, out = Nil).run -> y.copy(in = x.out, out = Nil).run
+          } .takeWhile{ case (x,y) => x.out.nonEmpty || y.out.nonEmpty}
+            .foldLeft(0){case (res,(x,y)) => res + y.out.length}
       }
 
       //Program("snd 1\nsnd 2\nsnd p\nrcv a\nrcv b\nrcv c\nrcv d".split("\n").map(_.split(" ")).toList).answer.trace
@@ -770,6 +766,26 @@ object AdventOfCodeTest extends TestSuite {
       f(0, 0, data)
       g(Nil,0,data).map(_.reduce(_ + _)).sum
 
+    }
+    'Day25 - {
+//      ImportInput.save(25)
+      Input.day(25)
+      type State = (Char, Int, Set[Int])
+      def f: State => State = {
+        case ('A', p, ones) if(!ones.contains(p)) => ('B', p+1, ones + p)
+        case ('A', p, ones) if(ones.contains(p))  => ('C', p+1, ones - p)
+        case ('B', p, ones) if(!ones.contains(p)) => ('A', p-1, ones)
+        case ('B', p, ones) if(ones.contains(p))  => ('D', p+1, ones - p)
+        case ('C', p, ones) if(!ones.contains(p)) => ('D', p+1, ones + p)
+        case ('C', p, ones) if(ones.contains(p))  => ('A', p+1, ones)
+        case ('D', p, ones) if(!ones.contains(p)) => ('E', p-1, ones + p)
+        case ('D', p, ones) if(ones.contains(p))  => ('D', p-1, ones - p)
+        case ('E', p, ones) if(!ones.contains(p)) => ('F', p+1, ones + p)
+        case ('E', p, ones) if(ones.contains(p))  => ('B', p-1, ones)
+        case ('F', p, ones) if(!ones.contains(p)) => ('A', p+1, ones + p)
+        case ('F', p, ones) if(ones.contains(p))  => ('E', p+1, ones)
+      }
+      Iterator.iterate(('A', 0, Set.empty[Int]))(f).drop(12399302).next()._3.size
     }
   }
 }
