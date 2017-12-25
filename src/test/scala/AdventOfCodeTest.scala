@@ -11,7 +11,6 @@ object TestUtils {
       val left = f(x)
       assert(left == right)
   }
-
 }
 
 object AdventOfCodeTest extends TestSuite {
@@ -481,7 +480,6 @@ object AdventOfCodeTest extends TestSuite {
       //answer1(testCommands).trace
       assert(answer1(testCommands) == 4)
       assert(answer1(commands) == 8600)
-
       //      Iterator.iterate(State())(run(commands))
 //        .dropWhile(x => x.p > -1 && x.p < commands.length).next().valOf("$").trace
     }
@@ -554,77 +552,38 @@ object AdventOfCodeTest extends TestSuite {
       Stream.iterate(uniques(particles))(ps => uniques(ps.map(_.next))).take(100).foreach(_.length.trace)
     }
     'Day21 - {
-      //ImportInput.save(21)
       //Input.day(21)
-      val start = ".#./..#/###"
-      //def rotate3(s: String) =
-      //1 2  1 3  4 2  4 3  2 1  3 1  2 4  2 1
-      //3 4  2 4  3 1  2 1  4 3  4 2  1 3  4 3
-      trait Tile {
-        def rotate: Tile
-        def flip: Tile
+      //(1 to 54).grouped(6).traceWith(_.mkString("\n")).toIterable.grouped(3,3)
+      Input.day(21).split("\n").toList.traceWith(_.mkString("\n"))
+      val a = ".#.\n..#\n###"
+      def grid(s: String) = {
+        val a = s.split("\n")
+        val gd = if (a.length % 2 == 0) 2 else 3
+        val l = a.length / gd
+        val b = Stream.tabulate(a.length / gd, a(0).length / gd) {
+          case (x, y) => a.slice(gd * x, gd * (x + 1)).map(_.slice(gd * y, gd * (y + 1))).mkString("/")
+        }.map(_.toList).toList
+        b
       }
-      case class Tile2[T](a1: (T,T), a2: (T,T)) extends Tile {
-        def rotate = Tile2((a1._2,a2._2), (a1._1,a2._1))
-        def flip = Tile2(a2,a1)
-      }
-      case class Tile3[T](a1: (T,T,T), a2: (T,T,T), a3: (T,T,T)) extends Tile {
-        def rotate = Tile3((a1._3,a2._3,a3._3), (a1._2,a2._2,a3._2),(a1._1,a2._1,a3._1))
-        def flip = Tile3(a3,a2,a1)
-      }
+      def merge_(ss: Iterable[String]): String = ss.map(_.split("/")).transpose.map(_.mkString).mkString("\n")
+      def merge(s: Iterable[Iterable[String]]): String = s.map(merge_).mkString("\n")
+      val b = "aaaaaaaaa\nbbbbbbbbb\nccccccccc\nddddddddd\neeeeeeeee\nfffffffff\nggggggggg\nhhhhhhhhh\niiiiiiiii"
+      merge(grid(a)) ==> a
+      merge(grid(b)) ==> b
 
-      val symm: Tile => List[Tile] =
-        s => Stream.iterate(s)(_.rotate).take(4).flatMap(x => List(x,x.flip)).toList
-
-      val a = ".#.\n..#\n###".split("\n").toList
-      //if(a.length % 2 == 0) ??? else ???
-
-      //a.map(_.grouped(2)).grouped(2)
-      a.map(_.grouped(3).toList).grouped(3).toList
-
-      //[
-      //  [
-      //    [[1,2,3],[4,5,6],[7,8,9]],
-      //    [[1,2,3],[4,5,6],[7,8,9]],
-      //    [[1,2,3],[4,5,6],[7,8,9]]
-      //  ],
-      //  [
-      //    [[1,2,3],[4,5,6],[7,8,9]],
-      //    [[1,2,3],[4,5,6],[7,8,9]],
-      //    [[1,2,3],[4,5,6],[7,8,9]]
-      //  ],
-      //  [
-      //    [[1,2,3],[4,5,6],[7,8,9]],
-      //    [[1,2,3],[4,5,6],[7,8,9]],
-      //    [[1,2,3],[4,5,6],[7,8,9]]]
-      //  ]
-      //]
-      val (n,m) = (a.length / 3,  a(0).length / 3)
-      //(0 until n).map(i => (0 until m).map( j => a(i)(j)))
-      val aa = (1 to 9).map(i => (1 to 9).map(j => (i,j))).traceWith(_.map(_.mkString).mkString("\n"))
-      val splited = aa.map(_.grouped(3).toList).transpose.grouped(3).toList
-      splited.traceWith(_.map(_.map(_.map(_.mkString).mkString("\n"))))
-
-      // +++ === +++
-      // +++ === +++
-      // +++ === +++
-
-      // === +++ ===
-      // === +++ ===
-      // === +++ ===
-
-      // +++ === +++
-      // +++ === +++
-      // +++ === +++
-
-//      val symmetries = List[String=>String](
-//        identity(_),
-//        flipX, flipY, flipXY,
-//        flipX andThen flipY,
-//        flipX andThen flipXY,
-//        flipY andThen flipXY,
-//        flipX andThen flipXY andThen flipX)
-//      symmetries.map(f => f("12/34")).distinct.length
+      def turn(s: String) = (s.split("/")).toList.transpose.reverse.map(_.mkString).mkString("/")
+      turn("ab/cd")
+      def flip(s: String) = s.split("/").reverse.mkString("/")
+      def symm(s: String) =
+        Iterator.iterate(s)(turn).take(4).flatMap(x => List(x,flip(x))).toList
+      symm("abc/def/ghi")
+      val dict = Map("../.#" -> "##./#../...", ".#./..#/###" -> "#..#/..../..../#..#")
+      val input = Input.day(21).split("\n")
+        .flatMap(_.split(" => ") match {case Array(x,y) => symm(x).map(_ -> y)}).toMap
+      Iterator.iterate(a)(x => merge(grid(x).map(_.map(input)))).drop(1)
+        .take(18).toList
+        //.traceWith(_.mkString("\n\n"))
+        .last.count(_ == '#').trace
     }
     'Day22 - {
       //ImportInput.save(22)
