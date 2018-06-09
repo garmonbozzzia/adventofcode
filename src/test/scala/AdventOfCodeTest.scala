@@ -11,6 +11,7 @@ object TestUtils {
       val left = f(x)
       assert(left == right)
   }
+  //patch
 }
 
 object AdventOfCodeTest extends TestSuite {
