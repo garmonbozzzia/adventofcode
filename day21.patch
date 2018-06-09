@@ -1,0 +1,15 @@
+Index: src/test/scala/AdventOfCodeTest.scala
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/test/scala/AdventOfCodeTest.scala	(date 1514228314000)
++++ src/test/scala/AdventOfCodeTest.scala	(date 1514228416000)
+@@ -11,6 +11,7 @@
+       val left = f(x)
+       assert(left == right)
+   }
++  //patch
+ }
+ 
+ object AdventOfCodeTest extends TestSuite {
